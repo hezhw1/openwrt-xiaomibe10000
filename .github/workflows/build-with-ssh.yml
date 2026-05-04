@@ -1,0 +1,57 @@
+# .github/workflows/build-with-ssh.yml
+name: Build OpenWrt with SSH Access
+
+on:
+  workflow_dispatch:
+    inputs:
+      ssh_enable:
+        description: 'Enable SSH session for manual configuration'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup build environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses5-dev gawk git subversion libssl-dev gettext zlib1g-dev file unzip python3
+
+      - name: Update feeds
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Generate default .config
+        run: |
+          # 这里使用你设备的默认配置。如果仓库有预设的config文件，可以改为 'cat config/[某文件] > .config'
+          make defconfig
+
+      # 核心：SSH 手动配置环节
+      - name: Setup tmate session for manual config
+        if: github.event.inputs.ssh_enable == 'true'
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+          sudo: true
+          no-keys: true   # 这行会提供一个网页终端链接，免密钥
+
+      - name: Build firmware
+        run: |
+          # 如果在SSH会话中已经保存了配置，这里会直接用新配置编译
+          make download -j8
+          make -j$(nproc)
+
+      - name: Upload firmware packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-firmware
+          path: bin/targets/*/

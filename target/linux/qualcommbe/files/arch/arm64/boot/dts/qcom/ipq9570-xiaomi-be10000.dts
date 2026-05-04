@@ -4017,8 +4017,3 @@
                 bootargs = "console=ttyMSM0,115200n8";
         };
 };
-
-&reserved_memory {
-	// 现有内存保留配置保持不变
-
-
